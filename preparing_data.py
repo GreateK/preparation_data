@@ -55,39 +55,41 @@ class Img:
 
     def color_rule(self, y_indices, x_indices, rgb_self_all, rgb_comp_all):
         """
-        Применяет правила к разнице цветов и возвращает список строк для записи.
+        Gives a label for evry line in file, which consists of lines cordinates
+        Blue - "нижняя бровка"
+        Red - "вехняя бровка"
+        Yellow - "хребет"
+        Other - "Неизвестно"
         """
         diff_r = rgb_comp_all[:, 0].astype(int) - rgb_self_all[:, 0].astype(int)
         diff_g = rgb_comp_all[:, 1].astype(int) - rgb_self_all[:, 1].astype(int)
         diff_b = rgb_comp_all[:, 2].astype(int) - rgb_self_all[:, 2].astype(int)
 
         lines = []
+        low_count, high_count, peak_count, unknown_count = 0, 0, 0, 0
+
         for i in range(len(y_indices)):
             y, x = y_indices[i], x_indices[i]
             dr, dg, db = diff_r[i], diff_g[i], diff_b[i]
-            
-            # Определяем тип объекта по вашим правилам
             label = "Неизвестно"
             
-            # 1. B > 0, R == 0, G == 0 -> нижняя бровка
             if db > 0 and dr == 0 and dg == 0:
                 label = "нижняя бровка"
-                
-            # 2. R > 0, B == 0, G == 0 -> верхняя бровка
+                low_count+=1   
             elif dr > 0 and db == 0 and dg == 0:
                 label = "верхняя бровка"
-                
-            # 3. R > 0, G > 0, B == 0 -> хребет
+                high_count+=1
             elif dr > 0 and dg > 0 and db == 0:
                 label = "хребет"
-
-            # Формируем строку (если тип "Неизвестно", можно пропускать или писать как есть)
+                peak_count+=1
+            else: unknown_count+=1
             line = (
                 f"Position (Y:{y}, X:{x}) -> {self.name} "
                 f"RGB: {rgb_self_all[i]} | Comp RGB: {rgb_comp_all[i]} | Тип: {label}\n"
             )
             lines.append(line)
-            
+
+        print(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count}")
         return lines
 
     def uniq_pixels(self, comp_array, boolean_matrix):
@@ -167,3 +169,4 @@ print("Shape of extracted values:", overlay_mismatched_values.shape)
 print("First 5 mismatched pixel values from overlay:\n", overlay_mismatched_values[:5])
 
 print('---------')
+

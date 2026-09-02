@@ -14,7 +14,7 @@ class Img:
     def img_stats(self):
         self.img = Image.open(self.path)
         print('name:', self.name ,'\nformat:', self.img.format, '\nsize:', self.img.size, '\nmode:', self.img.mode)
-        self.img.show()
+        #self.img.show()
 
     def process_img(self) -> np.ndarray:
         if self.img is None:
@@ -22,7 +22,7 @@ class Img:
         array = np.array(self.img)
         return array
 
-    def is_identical(self, comp_array, name):
+    def is_identical(self, comp_array, name = None):
         is_identical = np.array_equal(self.process_img(), comp_array)
         print(f"Is {self.name} identical to {name}? ", is_identical)
 
@@ -32,9 +32,33 @@ class Img:
         print("Shape of boolean matrix:", pixel_matrix.shape)  # Will be 2D: (Height, Width)
         print("Type of matrix elements:", pixel_matrix.dtype)  # Will be bool
 
-        # Quick sanity check: Count total matching pixels
         print("Total matching pixels:", np.sum(pixel_matrix))
         print("Total different pixels:", np.sum(~pixel_matrix))
+        return pixel_matrix
+
+    def uniq_pixels(self, comp_array, boolean_matrix):
+        height, width = boolean_matrix.shape
+        is_identical = boolean_matrix.all()
+
+        if not is_identical:
+            # contains 3 arrays: (Y_coordinates, X_coordinates, Channel_coordinates)
+            mismatch_indices = np.where(self.process_img() != comp_array)
+            
+            # gets the count of different values across all channels
+            total_mismatches = len(mismatch_indices[0])
+            print(f"Total differing sub-channel elements: {total_mismatches}")
+            
+            # passes the variable into loop range
+            print("First 5 mismatch positions (Row, Col, Channel):")
+            for i in range(min(5, total_mismatches)):
+                y = mismatch_indices[0][i]
+                x = mismatch_indices[1][i]
+                c = mismatch_indices[2][i]
+                
+                val1 = self.process_img()[y, x, c]
+                val2 = comp_array[y, x, c]
+                print(f"Position (Y:{y}, X:{x}, Ch:{c}) -> {self.name}: {val1}, Comp: {val2}")
+
 
 
 ortho = Img('ortho', os.getenv("ORTHO1"))
@@ -52,5 +76,8 @@ print(ortho_array.shape)
 print(overlay_array.shape)
 
 print('---------')
-ortho.is_identical(overlay_array, 'overlay_array')
+matrix_result = ortho.is_identical(overlay_array, 'overlay_array')
+
+print('---------')
+ortho.uniq_pixels(overlay_array, matrix_result)
 

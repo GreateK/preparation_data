@@ -24,26 +24,17 @@ class Img:
 
     def is_identical(self, comp_array, name):
         is_identical = np.array_equal(self.process_img(), comp_array)
-        print(f"Is {self.name} identical to {name}", is_identical)
-        if not is_identical:
-            # 1. Find the coordinates where they are NOT equal
-            # mismatch_indices will contain 3 arrays: (Y_coordinates, X_coordinates, Channel_coordinates)
-            mismatch_indices = np.where(self.process_img() != comp_array)
-            
-            # 2. Count how many individual color values differ
-            total_mismatches = len(mismatch_indices[0])
-            print(f"Total differing values across all channels: {total_mismatches}")
-            
-            # 3. Print the first 5 mismatched positions as an example (Y, X, Channel)
-            print("First 5 mismatch positions (Row, Col, Channel):")
-            for i in range(min(5, total_mismatches)):
-                y = mismatch_indices[0][i]
-                x = mismatch_indices[1][i]
-                c = mismatch_indices[2][i]
-                
-                val1 = ortho_array[y, x, c]
-                val2 = overlay_array[y, x, c]
-                print(f"Position (Y:{y}, X:{x}, Ch:{c}) -> Ortho: {val1}, Overlay: {val2}")
+        print(f"Is {self.name} identical to {name}? ", is_identical)
+
+        channel_matches = (self.process_img() == comp_array)
+        pixel_matrix = channel_matches.all(axis=-1)
+
+        print("Shape of boolean matrix:", pixel_matrix.shape)  # Will be 2D: (Height, Width)
+        print("Type of matrix elements:", pixel_matrix.dtype)  # Will be bool
+
+        # Quick sanity check: Count total matching pixels
+        print("Total matching pixels:", np.sum(pixel_matrix))
+        print("Total different pixels:", np.sum(~pixel_matrix))
 
 
 ortho = Img('ortho', os.getenv("ORTHO1"))
@@ -62,8 +53,4 @@ print(overlay_array.shape)
 
 print('---------')
 ortho.is_identical(overlay_array, 'overlay_array')
-
-print('---------')
-is_identical = np.array_equal(ortho_array, overlay_array)
-print("Are they identical?:", is_identical)
 

@@ -2,7 +2,6 @@ from PIL import Image
 import numpy as np
 from dotenv import load_dotenv
 import os
-import re
 
 load_dotenv()
 
@@ -65,32 +64,33 @@ class Img:
         diff_g = rgb_comp_all[:, 1].astype(int) - rgb_self_all[:, 1].astype(int)
         diff_b = rgb_comp_all[:, 2].astype(int) - rgb_self_all[:, 2].astype(int)
 
-        lines = []
+        labels = []
         low_count, high_count, peak_count, unknown_count = 0, 0, 0, 0
 
         for i in range(len(y_indices)):
-            y, x = y_indices[i], x_indices[i]
+            #y, x = y_indices[i], x_indices[i]
             dr, dg, db = diff_r[i], diff_g[i], diff_b[i]
-            label = "Неизвестно"
             
             if db > 0 and dr == 0 and dg == 0:
-                label = "нижняя бровка"
+                labels.append(1)
                 low_count+=1   
             elif dr > 0 and db == 0 and dg == 0:
-                label = "верхняя бровка"
+                labels.append(2)
                 high_count+=1
             elif dr > 0 and dg > 0 and db == 0:
-                label = "хребет"
+                labels.append(3)
                 peak_count+=1
-            else: unknown_count+=1
-            line = (
-                f"Position (Y:{y}, X:{x}) -> {self.name} "
-                f"RGB: {rgb_self_all[i]} | Comp RGB: {rgb_comp_all[i]} | Тип: {label}\n"
-            )
-            lines.append(line)
+            else:
+                labels.append(0) 
+                unknown_count+=1
+            #line = (
+                #f"Position (Y:{y}, X:{x}) -> {self.name} "
+                #f"RGB: {rgb_self_all[i]} | Comp RGB: {rgb_comp_all[i]} | Тип: {label}\n"
+            #)
+            #lines.append(line)
 
         print(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count}")
-        return lines
+        return labels
 
     def uniq_pixels(self, comp_array, boolean_matrix):
         if not boolean_matrix.all():
@@ -102,11 +102,21 @@ class Img:
             rgb_self_all = img_self[y_indices, x_indices]
             rgb_comp_all = comp_array[y_indices, x_indices]
             
-            classified_lines = self.color_rule(y_indices, x_indices, rgb_self_all, rgb_comp_all)
+            classified_lables = self.color_rule(y_indices, x_indices, rgb_self_all, rgb_comp_all)
+            
+            if len(classified_lables) == total_mismatches:
+                with open("lables.txt", "w", encoding="utf-8") as file:
+                    # Added a newline \n between numbers so they aren't merged on a single line
+                    file.writelines([f"{str(num)}\n" for num in classified_lables])
+                print("Файл lables.txt успешно обновлен!")
+            else: 
+                raise ValueError("Value of total missmatches is not eq to labels num.")
 
-            with open("differences.txt", "w", encoding="utf-8") as file:
-                file.writelines(classified_lines)
-            print("Файл differences.txt успешно обновлен!")
+            return y_indices, x_indices, classified_lables
+
+        print("Изображения идентичны. Возвращаются пустые структуры.")
+        return np.array([], dtype=int), np.array([], dtype=int), []
+
 
 
     def crop_by_differences(self, comp_array: np.ndarray, padding: int = 10):
@@ -141,6 +151,24 @@ class Img:
         return cropped_image
 
 
+class Mask():
+
+    def __init__(self):
+        pass
+
+    def make_mask(self, axis_y, axis_x, val):
+        matrix_2d = np.zeros((1024, 1024), dtype=int)
+
+        x = axis_x.tolist()
+        print(x)
+        print(matrix_2d.shape)  # Output: (1024, 1024)
+        print(matrix_2d[0][0]) 
+        for i in range(len(val)):
+            matrix_2d[axis_y[i]][axis_x[i]] = val[i]
+
+        np.savetxt('final_mask.csv', matrix_2d, delimiter=',', fmt='%d')
+        print("Saved as a human-readable CSV file!")
+        
 
 ortho = Img('ortho', os.getenv("ORTHO2"))
 ortho.img_stats()
@@ -160,7 +188,7 @@ print('---------')
 matrix_result = ortho.is_identical(overlay_array, 'overlay_array')
 
 print('---------')
-ortho.uniq_pixels(overlay_array, matrix_result)
+axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result)
 
 different_pixels_mask = ~matrix_result
 overlay_mismatched_values = overlay_array[different_pixels_mask]
@@ -169,4 +197,7 @@ print("Shape of extracted values:", overlay_mismatched_values.shape)
 print("First 5 mismatched pixel values from overlay:\n", overlay_mismatched_values[:5])
 
 print('---------')
+
+mask = Mask()
+mask.make_mask(axis_y, axis_x, val)
 

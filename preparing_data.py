@@ -153,14 +153,14 @@ class Img:
 
 class Mask():
 
-    def __init__(self):
-        pass
+    def __init__(self, filename):
+        self.filename = filename
 
     def make_mask(self, axis_y, axis_x, val):
         matrix_2d = np.zeros((1024, 1024), dtype=int)
 
-        x = axis_x.tolist()
-        print(x)
+        # x = axis_x.tolist()
+        # print(x)
         print(matrix_2d.shape)  # Output: (1024, 1024)
         print(matrix_2d[0][0]) 
         for i in range(len(val)):
@@ -168,6 +168,19 @@ class Mask():
 
         np.savetxt('final_mask.csv', matrix_2d, delimiter=',', fmt='%d')
         print("Saved as a human-readable CSV file!")
+
+    def count_values_from_csv(self):
+        matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
+
+        unique_labels, counts = np.unique(matrix, return_counts=True)
+        print(f"Loaded matrix shape: {matrix.shape}") 
+
+        for label, count in zip(unique_labels, counts):
+            label_name = "Background / Empty (0)" if label == 0 else f"Label {label}"
+            if label == 1: label_name = "Нижняя бровка (1)"
+            elif label == 2: label_name = "Верхняя бровка (2)"
+            elif label == 3: label_name = "Хребет (3)"
+            print(f"{label_name}: {count} pixels")
         
 
 ortho = Img('ortho', os.getenv("ORTHO2"))
@@ -198,6 +211,7 @@ print("First 5 mismatched pixel values from overlay:\n", overlay_mismatched_valu
 
 print('---------')
 
-mask = Mask()
+mask = Mask('final_mask.csv')
 mask.make_mask(axis_y, axis_x, val)
+mask.count_values_from_csv()
 

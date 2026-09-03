@@ -170,23 +170,32 @@ class Mask():
         print("Saved as a human-readable CSV file!")
 
     def count_values_from_csv(self):
+        # 1. Загружаем матрицу
         matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
-        basis = 0
-
-        unique_labels, counts = np.unique(matrix, return_counts=True)
         print(f"Loaded matrix shape: {matrix.shape}") 
 
+        # 2. Считаем уникальные значения
+        unique_labels, counts = np.unique(matrix, return_counts=True)
+
+        # 3. Выводим красивую статистику на экран
         for label, count in zip(unique_labels, counts):
             label_name = "Background / Empty (0)" if label == 0 else f"Label {label}"
             if label == 1: label_name = "Нижняя бровка (1)"
             elif label == 2: label_name = "Верхняя бровка (2)"
             elif label == 3: label_name = "Хребет (3)"
             print(f"{label_name}: {count} pixels")
-            basis+=basis
 
+        # 4. Вместо ручного сложения basis += count берем точный размер матрицы
+        # matrix.size для 1024x1024 ВСЕГДА равен 1048576
+        basis = matrix.size 
+        print(f"Calculated basis (total pixels): {basis}")
+
+        # 5. Проверка безопасности
         if basis != 1_048_576:
-            raise TypeError(f"Ortho has to be 1024*1024. Ortho name: {self.filename}")
-        else: print("Basis is correct")
+            raise TypeError(f"Ortho has to be 1024*1024. Actually got {basis}. Ortho name: {self.filename}")
+        
+        print("Basis is correct")
+
         
 
 ortho = Img('ortho', os.getenv("ORTHO2"))

@@ -1,14 +1,14 @@
 from PIL import Image
-import numpy as np
+from pathlib import Path
 from dotenv import load_dotenv
+import numpy as np
 import os
 
 load_dotenv()
 
 class Img:
-    def __init__(self, name, path):
-        self.name = name
-        self.path = path
+    def __init__(self, path):
+        self.path = str(path)
         self.img = None
         self.array = None
 
@@ -19,7 +19,9 @@ class Img:
 
         '''
         self.img = Image.open(self.path)
-        print('name:', self.name ,'\nformat:', self.img.format, '\nsize:', self.img.size, '\nmode:', self.img.mode)
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"path:{self.path},\nformat:{self.img.format},\nsize:{self.img.size},\nmode:{self.img.mode}\n")
+        print("Файл log.txt успешно обновлен!")
         #self.img.show()
 
     def process_img(self) -> np.ndarray:
@@ -38,21 +40,24 @@ class Img:
         loaded as a parameter
 
         '''
-
+        if self.array is None:
+            self.process_img()
+        
         is_identical = np.array_equal(self.array, comp_array)
-        print(f"Is {self.name} identical to {name}? ", is_identical)
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"Is {self.path} identical to {name}? {is_identical}\n")
 
-        channel_matches = (self.array == comp_array)
-        pixel_matrix = channel_matches.all(axis=-1)
+            channel_matches = (self.array == comp_array)
+            pixel_matrix = channel_matches.all(axis=-1)
 
-        print("Shape of boolean matrix:", pixel_matrix.shape)  # Will be 2D: (Height, Width)
-        print("Type of matrix elements:", pixel_matrix.dtype)  # Will be bool
+            log.write(f"Shape of boolean matrix: {pixel_matrix.shape}\n")  # Will be 2D: (Height, Width)
+            log.write(f"Type of matrix elements: {pixel_matrix.dtype}\n")  # Will be bool
 
-        print("Total matching pixels:", np.sum(pixel_matrix))
-        print("Total different pixels:", np.sum(~pixel_matrix))
+            log.write(f"Total matching pixels: {np.sum(pixel_matrix)}\n")
+            log.write(f"Total different pixels: {np.sum(~pixel_matrix)}\n\n")
         return pixel_matrix
 
-    def color_rule(self, y_indices, x_indices, rgb_self_all, rgb_comp_all):
+    def color_rule(self, y_indices, rgb_self_all, rgb_comp_all):
         """
         Gives a label for evry line in file, which consists of lines cordinates
         Blue - "нижняя бровка"
@@ -88,24 +93,25 @@ class Img:
                 #f"RGB: {rgb_self_all[i]} | Comp RGB: {rgb_comp_all[i]} | Тип: {label}\n"
             #)
             #lines.append(line)
-
-        print(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count}")
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count}")
         return labels
 
     def uniq_pixels(self, comp_array, boolean_matrix):
         if not boolean_matrix.all():
             y_indices, x_indices = np.where(~boolean_matrix)
             total_mismatches = len(y_indices)
-            print(f"Total differing pixel coordinates: {total_mismatches}")
+            with open("test_data/log.txt", "a", encoding="utf-8") as log:
+                log.write(f"Total differing pixel coordinates: {total_mismatches}")
 
-            img_self = self.array # берем уже сохраненный массив
+            img_self = self.array # берем уже сохраненный массив как атрибут класса
             rgb_self_all = img_self[y_indices, x_indices]
             rgb_comp_all = comp_array[y_indices, x_indices]
             
-            classified_lables = self.color_rule(y_indices, x_indices, rgb_self_all, rgb_comp_all)
+            classified_lables = self.color_rule(y_indices, rgb_self_all, rgb_comp_all)
             
             if len(classified_lables) == total_mismatches:
-                with open("lables.txt", "w", encoding="utf-8") as file:
+                with open("test_data/lables.txt", "w", encoding="utf-8") as file:
                     # Added a newline \n between numbers so they aren't merged on a single line
                     file.writelines([f"{str(num)}\n" for num in classified_lables])
                 print("Файл lables.txt успешно обновлен!")
@@ -158,20 +164,15 @@ class Mask():
 
     def make_mask(self, axis_y, axis_x, val):
         matrix_2d = np.zeros((1024, 1024), dtype=int)
-
-        # x = axis_x.tolist()
-        # print(x)
-        print(matrix_2d.shape)  # Output: (1024, 1024)
-        print(matrix_2d[0][0]) 
         for i in range(len(val)):
             matrix_2d[axis_y[i]][axis_x[i]] = val[i]
 
-        np.savetxt('final_mask.csv', matrix_2d, delimiter=',', fmt='%d')
-        print("Saved as a human-readable CSV file!")
+        np.savetxt('test_data/final_mask.csv', matrix_2d, delimiter=',', fmt='%d')
 
     def count_values_from_csv(self):
         matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
-        print(f"Loaded matrix shape: {matrix.shape}") 
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"Loaded matrix shape: {matrix.shape}\n") 
 
         unique_labels, counts = np.unique(matrix, return_counts=True)
 
@@ -183,19 +184,19 @@ class Mask():
             print(f"{label_name}: {count} pixels")
 
         basis = matrix.size 
-        print(f"Calculated basis (total pixels): {basis}")
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"Calculated basis (total pixels): {basis}\n")
 
         if basis != 1_048_576:
             raise TypeError(f"Ortho has to be 1024*1024. Actually got {basis}. Ortho name: {self.filename}")
-        
-        print("Basis is correct")
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write("Basis is correct")
 
-    def csv_to_upscaled_colored_image(self, output_png_path='mask_hq_visual.png', upscale_factor=4):
+    def csv_to_upscaled_colored_image(self, output_png_path='test_data/mask_hq_visual.png', upscale_factor=4):
         """
         Loads the CSV matrix, maps custom colors to labels, 
         upscales the pixel lines sharply, and displays/saves the image.
         """
-        print(f"Loading '{self.filename}' for upscaled visualization...")
         matrix = np.loadtxt(self.filename, delimiter=',', dtype=np.uint8)
         
         img = Image.fromarray(matrix, mode='P')
@@ -220,43 +221,59 @@ class Mask():
         upscaled_img = img.resize((new_width, new_height), resample=Image.NEAREST)
         
         upscaled_img.save(output_png_path)
-        print(f"Upscaled colored mask ({new_width}x{new_height}) saved to {output_png_path}")
-        upscaled_img.show()
-        
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"Upscaled colored mask ({new_width}x{new_height}) saved to {output_png_path}")
+        #upscaled_img.show()
         return upscaled_img
 
-        
+    
 
-ortho = Img('ortho', os.getenv("ORTHO2"))
-ortho.img_stats()
-ortho_array = ortho.process_img()
-print('---------')
-overlay = Img('overlay', os.getenv("OVERLAY2"))
-overlay.img_stats()
-overlay_array = overlay.process_img()
-#np.save('my_array.npy', ortho_array)
+def process_pipeline(input_ortho_dir_str: str, output_dir_str: str):
+    input_ortho_dir = Path(input_ortho_dir_str)
+    output_dir = Path(output_dir_str)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    ortho_files = sorted(input_ortho_dir.glob("*_ortho.png"))
+    
+    print(f"Found {len(ortho_files)} files to process.")
+
+    for ortho_path in ortho_files:
+        overlay_name = ortho_path.name.replace("_ortho.png", "_overlay.png")
+        overlay_path = ortho_path.parent.parent / "overlays" / overlay_name
+
+        if not overlay_path.exists():
+            print(f"Skipping {ortho_path.name}: Matching overlay not found at {overlay_path}")
+            continue
+        with open("test_data/log.txt", "a", encoding="utf-8") as log:
+            log.write(f"\nProcessing pair: {ortho_path.name} <---> {overlay_name}\n")
+
+        try:
+            ortho = Img(ortho_path)
+            ortho.img_stats()
+            overlay = Img(overlay_path)
+            overlay.img_stats()
+            overlay_array = overlay.process_img()
+            #np.save('my_array.npy', ortho_array)
+
+            matrix_result = ortho.is_identical(overlay_array, 'overlay_array')
+            axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result)
+
+            mask = Mask('test_data/final_mask.csv')
+            mask.make_mask(axis_y, axis_x, val)
+            mask.count_values_from_csv()
+
+            result = mask.csv_to_upscaled_colored_image(upscale_factor=4)
+            result_name = ortho_path.name.replace("_ortho.png", "_mask.png")
+            result.save(output_dir/result_name)
+            print(f"Successfully saved processed mask layout to: {os.getenv("OUTPUT_DIR")}")
+
+        except Exception as e:
+            print(f"Processing crashed in time of working on {ortho_path}, because of {e}")
 
 
-print('---------')
-print(ortho_array.shape)
-print(overlay_array.shape)
+def main():
+    process_pipeline(os.getenv("ORTHO_DIR"), os.getenv("OUTPUT_DIR"))
 
-print('---------')
-matrix_result = ortho.is_identical(overlay_array, 'overlay_array')
+if __name__ == "__main__":
+    main()
 
-print('---------')
-axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result)
-
-different_pixels_mask = ~matrix_result
-overlay_mismatched_values = overlay_array[different_pixels_mask]
-
-print("Shape of extracted values:", overlay_mismatched_values.shape)
-print("First 5 mismatched pixel values from overlay:\n", overlay_mismatched_values[:5])
-
-print('---------')
-
-mask = Mask('final_mask.csv')
-mask.make_mask(axis_y, axis_x, val)
-mask.count_values_from_csv()
-
-mask.csv_to_upscaled_colored_image(upscale_factor=4)

@@ -1,4 +1,6 @@
 .env 
+test_data
+training_data
 training_data_v2
 differences.txt
 final_mask.csv

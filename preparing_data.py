@@ -171,6 +171,7 @@ class Mask():
 
     def count_values_from_csv(self):
         matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
+        basis = 0
 
         unique_labels, counts = np.unique(matrix, return_counts=True)
         print(f"Loaded matrix shape: {matrix.shape}") 
@@ -181,6 +182,11 @@ class Mask():
             elif label == 2: label_name = "Верхняя бровка (2)"
             elif label == 3: label_name = "Хребет (3)"
             print(f"{label_name}: {count} pixels")
+            basis+=basis
+
+        if basis != 1_048_576:
+            raise TypeError(f"Ortho has to be 1024*1024. Ortho name: {self.filename}")
+        else: print("Basis is correct")
         
 
 ortho = Img('ortho', os.getenv("ORTHO2"))

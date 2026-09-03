@@ -37,25 +37,35 @@ class Img:
     def is_identical(self, comp_array, name = None):
         '''
         Compares an np.array based on such an class instance image with the other one, which 
-        loaded as a parameter
-
+        loaded as a parameter. Also identifies and logs pure white pixels.
         '''
         if self.array is None:
             self.process_img()
         
         is_identical = np.array_equal(self.array, comp_array)
+        
+        channel_matches = (self.array == comp_array)
+        pixel_matrix = channel_matches.all(axis=-1)
+
+        white_matrix = (self.array[:, :, :3] == 255).all(axis=-1)
+        total_white_pixels = np.sum(white_matrix)
+
+        if total_white_pixels > 0:
+            white_y, white_x = np.where(white_matrix)
+            with open("test_data/white_coordinates.txt", "w", encoding="utf-8") as white_log:
+                content = "".join(f"White Pixel -> Y: {white_y[i]}, X: {white_x[i]}\n" for i in range(total_white_pixels))
+                white_log.write(content)
+            print(f"Logged coordinates for {total_white_pixels} white pixels to white_coordinates.txt")
+
         with open("test_data/log.txt", "a", encoding="utf-8") as log:
             log.write(f"Is {self.path} identical to {name}? {is_identical}\n")
-
-            channel_matches = (self.array == comp_array)
-            pixel_matrix = channel_matches.all(axis=-1)
-
-            log.write(f"Shape of boolean matrix: {pixel_matrix.shape}\n")  # Will be 2D: (Height, Width)
-            log.write(f"Type of matrix elements: {pixel_matrix.dtype}\n")  # Will be bool
-
+            log.write(f"Shape of boolean matrix: {pixel_matrix.shape}\n")
             log.write(f"Total matching pixels: {np.sum(pixel_matrix)}\n")
-            log.write(f"Total different pixels: {np.sum(~pixel_matrix)}\n\n")
-        return pixel_matrix
+            log.write(f"Total different pixels: {np.sum(~pixel_matrix)}\n")
+            log.write(f"Total white pixels found: {total_white_pixels}\n\n")
+
+        return pixel_matrix, white_matrix
+
 
     def color_rule(self, y_indices, rgb_self_all, rgb_comp_all):
         """
@@ -69,13 +79,13 @@ class Img:
         diff_g = rgb_comp_all[:, 1].astype(int) - rgb_self_all[:, 1].astype(int)
         diff_b = rgb_comp_all[:, 2].astype(int) - rgb_self_all[:, 2].astype(int)
 
+
         labels = []
-        low_count, high_count, peak_count, unknown_count = 0, 0, 0, 0
+        low_count, high_count, peak_count, unknown_count, white_areas = 0, 0, 0, 0, 0
 
         for i in range(len(y_indices)):
             #y, x = y_indices[i], x_indices[i]
             dr, dg, db = diff_r[i], diff_g[i], diff_b[i]
-            
             if db > 0 and dr == 0 and dg == 0:
                 labels.append(1)
                 low_count+=1   
@@ -94,7 +104,7 @@ class Img:
             #)
             #lines.append(line)
         with open("test_data/log.txt", "a", encoding="utf-8") as log:
-            log.write(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count}")
+            log.write(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count},\nкол-во белых пикселей {white_areas}\n")
         return labels
 
     def uniq_pixels(self, comp_array, boolean_matrix):
@@ -102,7 +112,7 @@ class Img:
             y_indices, x_indices = np.where(~boolean_matrix)
             total_mismatches = len(y_indices)
             with open("test_data/log.txt", "a", encoding="utf-8") as log:
-                log.write(f"Total differing pixel coordinates: {total_mismatches}")
+                log.write(f"Total differing pixel coordinates: {total_mismatches}\n")
 
             img_self = self.array # берем уже сохраненный массив как атрибут класса
             rgb_self_all = img_self[y_indices, x_indices]
@@ -167,7 +177,7 @@ class Mask():
         for i in range(len(val)):
             matrix_2d[axis_y[i]][axis_x[i]] = val[i]
 
-        np.savetxt('test_data/final_mask.csv', matrix_2d, delimiter=',', fmt='%d')
+        np.savetxt(self.filename, matrix_2d, delimiter=',', fmt='%d')
 
     def count_values_from_csv(self):
         matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
@@ -181,7 +191,8 @@ class Mask():
             if label == 1: label_name = "Нижняя бровка (1)"
             elif label == 2: label_name = "Верхняя бровка (2)"
             elif label == 3: label_name = "Хребет (3)"
-            print(f"{label_name}: {count} pixels")
+            elif label == 4: label_name = "Белая область (4)"
+            print(f"{label_name}: {count} pixels\n")
 
         basis = matrix.size 
         with open("test_data/log.txt", "a", encoding="utf-8") as log:
@@ -206,6 +217,7 @@ class Mask():
             50, 100, 255,     # 1: Electric Blue lines
             255, 50, 50,      # 2: Bright Red lines
             255, 255, 50,     # 3: Golden Yellow
+            255, 255, 255,    # 4: White
         ]
         
         # Pad palette up to 768 integers (required by Pillow for 256 possible colors)
@@ -255,10 +267,11 @@ def process_pipeline(input_ortho_dir_str: str, output_dir_str: str):
             overlay_array = overlay.process_img()
             #np.save('my_array.npy', ortho_array)
 
-            matrix_result = ortho.is_identical(overlay_array, 'overlay_array')
+            matrix_result, matrix_white = ortho.is_identical(overlay_array, 'overlay_array')
             axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result)
 
-            mask = Mask('test_data/final_mask.csv')
+            mask_name = ortho_path.name.replace("_ortho.png", "_mask.csv")
+            mask = Mask(f'training_data/heights/{mask_name}')
             mask.make_mask(axis_y, axis_x, val)
             mask.count_values_from_csv()
 
@@ -271,8 +284,14 @@ def process_pipeline(input_ortho_dir_str: str, output_dir_str: str):
             print(f"Processing crashed in time of working on {ortho_path}, because of {e}")
 
 
+
 def main():
-    process_pipeline(os.getenv("ORTHO_DIR"), os.getenv("OUTPUT_DIR"))
+    path = Path(os.getenv("OUTPUT_DIR"))
+    is_not_empty = path.is_dir() and any(path.iterdir())
+    if not is_not_empty:
+        process_pipeline(os.getenv("ORTHO_DIR"), os.getenv("OUTPUT_DIR"))
+
+    
 
 if __name__ == "__main__":
     main()

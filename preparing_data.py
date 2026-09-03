@@ -170,14 +170,11 @@ class Mask():
         print("Saved as a human-readable CSV file!")
 
     def count_values_from_csv(self):
-        # 1. Загружаем матрицу
         matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
         print(f"Loaded matrix shape: {matrix.shape}") 
 
-        # 2. Считаем уникальные значения
         unique_labels, counts = np.unique(matrix, return_counts=True)
 
-        # 3. Выводим красивую статистику на экран
         for label, count in zip(unique_labels, counts):
             label_name = "Background / Empty (0)" if label == 0 else f"Label {label}"
             if label == 1: label_name = "Нижняя бровка (1)"
@@ -185,16 +182,48 @@ class Mask():
             elif label == 3: label_name = "Хребет (3)"
             print(f"{label_name}: {count} pixels")
 
-        # 4. Вместо ручного сложения basis += count берем точный размер матрицы
-        # matrix.size для 1024x1024 ВСЕГДА равен 1048576
         basis = matrix.size 
         print(f"Calculated basis (total pixels): {basis}")
 
-        # 5. Проверка безопасности
         if basis != 1_048_576:
             raise TypeError(f"Ortho has to be 1024*1024. Actually got {basis}. Ortho name: {self.filename}")
         
         print("Basis is correct")
+
+    def csv_to_upscaled_colored_image(self, output_png_path='mask_hq_visual.png', upscale_factor=4):
+        """
+        Loads the CSV matrix, maps custom colors to labels, 
+        upscales the pixel lines sharply, and displays/saves the image.
+        """
+        print(f"Loading '{self.filename}' for upscaled visualization...")
+        matrix = np.loadtxt(self.filename, delimiter=',', dtype=np.uint8)
+        
+        img = Image.fromarray(matrix, mode='P')
+        
+        palette = [
+            0, 0, 0,          # 0: Black Background
+            50, 100, 255,     # 1: Electric Blue lines
+            255, 50, 50,      # 2: Bright Red lines
+            255, 255, 50,     # 3: Golden Yellow
+        ]
+        
+        # Pad palette up to 768 integers (required by Pillow for 256 possible colors)
+        palette += [0] * (768 - len(palette))
+        img.putpalette(palette)
+        
+        # Calculate new dimensions (e.g., 1024 * 4 = 4096 x 4096)
+        new_width = img.width * upscale_factor
+        new_height = img.height * upscale_factor
+        
+        # Image.NEAREST is the magic key—it multiplies the pixel size 
+        # without introducing blur or fading out the narrow lines
+        upscaled_img = img.resize((new_width, new_height), resample=Image.NEAREST)
+        
+        upscaled_img.save(output_png_path)
+        print(f"Upscaled colored mask ({new_width}x{new_height}) saved to {output_png_path}")
+        upscaled_img.show()
+        
+        return upscaled_img
 
         
 
@@ -230,3 +259,4 @@ mask = Mask('final_mask.csv')
 mask.make_mask(axis_y, axis_x, val)
 mask.count_values_from_csv()
 
+mask.csv_to_upscaled_colored_image(upscale_factor=4)

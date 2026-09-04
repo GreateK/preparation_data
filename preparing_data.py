@@ -86,7 +86,10 @@ class Img:
         for i in range(len(y_indices)):
             #y, x = y_indices[i], x_indices[i]
             dr, dg, db = diff_r[i], diff_g[i], diff_b[i]
-            if db > 0 and dr == 0 and dg == 0:
+            if rgb_self_all[i, 0] == 255 and rgb_self_all[i, 1] == 255 and rgb_self_all[i, 2] == 255:
+                labels.append(4)
+                white_areas += 1
+            elif db > 0 and dr == 0 and dg == 0:
                 labels.append(1)
                 low_count+=1   
             elif dr > 0 and db == 0 and dg == 0:
@@ -107,9 +110,12 @@ class Img:
             log.write(f"кол-во нижних бровок: {low_count},\nкол-во верхних бровок: {high_count},\nкол-во хребтов: {peak_count},\nкол-во неизвестных {unknown_count},\nкол-во белых пикселей {white_areas}\n")
         return labels
 
-    def uniq_pixels(self, comp_array, boolean_matrix):
-        if not boolean_matrix.all():
-            y_indices, x_indices = np.where(~boolean_matrix)
+    def uniq_pixels(self, comp_array, boolean_matrix, white_matrix):
+
+        combined_mask = (~boolean_matrix) | white_matrix
+
+        if combined_mask.any():
+            y_indices, x_indices = np.where(combined_mask)
             total_mismatches = len(y_indices)
             with open("test_data/log.txt", "a", encoding="utf-8") as log:
                 log.write(f"Total differing pixel coordinates: {total_mismatches}\n")
@@ -268,7 +274,7 @@ def process_pipeline(input_ortho_dir_str: str, output_dir_str: str):
             #np.save('my_array.npy', ortho_array)
 
             matrix_result, matrix_white = ortho.is_identical(overlay_array, 'overlay_array')
-            axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result)
+            axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result, matrix_white)
 
             mask_name = ortho_path.name.replace("_ortho.png", "_mask.csv")
             mask = Mask(f'training_data/heights/{mask_name}')

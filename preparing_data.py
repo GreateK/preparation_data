@@ -175,18 +175,20 @@ class Img:
 
 class Mask():
 
-    def __init__(self, filename):
-        self.filename = filename
+    def __init__(self, csv_path, npy_path):
+        self.csv_path = csv_path
+        self.npy_path = npy_path
 
     def make_mask(self, axis_y, axis_x, val):
         matrix_2d = np.zeros((1024, 1024), dtype=int)
         for i in range(len(val)):
             matrix_2d[axis_y[i]][axis_x[i]] = val[i]
 
-        np.savetxt(self.filename, matrix_2d, delimiter=',', fmt='%d')
+        np.savetxt(self.csv_path, matrix_2d, delimiter=',', fmt='%d')
+        np.save(self.npy_path, matrix_2d)
 
     def count_values_from_csv(self):
-        matrix = np.loadtxt(self.filename, delimiter=',', dtype=int)
+        matrix = np.loadtxt(self.csv_path, delimiter=',', dtype=int)
         with open("test_data/log.txt", "a", encoding="utf-8") as log:
             log.write(f"Loaded matrix shape: {matrix.shape}\n") 
 
@@ -214,7 +216,7 @@ class Mask():
         Loads the CSV matrix, maps custom colors to labels, 
         upscales the pixel lines sharply, and displays/saves the image.
         """
-        matrix = np.loadtxt(self.filename, delimiter=',', dtype=np.uint8)
+        matrix = np.loadtxt(self.csv_path, delimiter=',', dtype=np.uint8)
         
         img = Image.fromarray(matrix, mode='P')
         
@@ -277,7 +279,8 @@ def process_pipeline(input_ortho_dir_str: str, output_dir_str: str):
             axis_y, axis_x, val = ortho.uniq_pixels(overlay_array, matrix_result, matrix_white)
 
             mask_name = ortho_path.name.replace("_ortho.png", "_mask.csv")
-            mask = Mask(f'training_data/heights/{mask_name}')
+            mask_name_npy = ortho_path.name.replace("_ortho.png", "_mask.npy")
+            mask = Mask(f'{output_dir}/csv/{mask_name}', f'{output_dir}/npy/{mask_name_npy}')
             mask.make_mask(axis_y, axis_x, val)
             mask.count_values_from_csv()
 
@@ -293,9 +296,9 @@ def process_pipeline(input_ortho_dir_str: str, output_dir_str: str):
 
 def main():
     path = Path(os.getenv("OUTPUT_DIR"))
-    is_not_empty = path.is_dir() and any(path.iterdir())
+    is_not_empty = any(p.is_file() for p in path.rglob("*"))
     if not is_not_empty:
-        process_pipeline(os.getenv("ORTHO_DIR"), os.getenv("OUTPUT_DIR"))
+        process_pipeline(os.getenv("ORTHO_DIR"), path)
 
     
 

@@ -69,17 +69,13 @@ class TerrainDataset(Dataset):
             
         return image, mask_tensor
 
-class NeuralNetwork():
+class NeuralNetwork(nn.Module):
     def __init__(self):
-        pass
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
+        )
 
-    def make_conv_layer():
-        conv_layer = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
-
-        input_tensor = torch.randn(4, 3, 1024, 1024)
-        output_tensor = conv_layer(input_tensor)
-
-        print(output_tensor.shape) 
     
 total_frames = TerrainDataset()
 
@@ -124,4 +120,8 @@ for batch_images, batch_masks in train_loader:
 # Learning_Rate=1e-5
 # width=height=1024
 # batch_size = 4
+
+model = NeuralNetwork()
+print(model)
+print(model.parameters())
 

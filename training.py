@@ -73,8 +73,12 @@ class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
         )
+
+    def forward(self, x):
+        return self.features(x)
 
     
 total_frames = TerrainDataset()
@@ -88,7 +92,7 @@ img_transform = transforms.Compose([
     transforms.ToDtype(torch.float32, scale=True) # Converts to float and scales pixels to [0, 1]
 ])
 
-# Instantiate dataset
+# создает список из пар тензоров
 dataset = TerrainDataset(
     images_dir='./training_data/images',
     masks_dir='./training_data/masks/csv',
@@ -96,6 +100,8 @@ dataset = TerrainDataset(
 )
 
 image_tensor, mask_tensor = dataset[2]
+
+print(dataset[2])
 
 print("--- Tensor Sanity Check ---")
 print(f"Image - Dtype: {image_tensor.dtype}, Shape: {image_tensor.shape}")
@@ -124,4 +130,19 @@ for batch_images, batch_masks in train_loader:
 model = NeuralNetwork()
 print(model)
 print(model.parameters())
+for name, param in model.named_parameters():
+    print(f"{name}: {param.shape}")
+
+# с помощью функции генератора берем первый  batch из train loader
+print(f"\nTotal batches available: {len(train_loader)}")
+batch_images, batch_masks = next(iter(train_loader))
+
+result = model(batch_images)
+
+print(f"Output batch shape: {result.shape}")
+print(f"Output batch: {result}")
+print('--------------')
+print(result[0].shape)
+print('--------------')
+print(result[0,0].shape)
 
